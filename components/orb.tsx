@@ -40,7 +40,7 @@ const Orb: React.FC = () => {
   const initViz = () => {
     console.log("Initializing Three.js visualization...");
     const scene = new THREE.Scene();
-    scene.background = null; // Make scene background transparent
+    scene.background = null;  // Make scene background transparent
     const group = new THREE.Group();
     const camera = new THREE.PerspectiveCamera(
       45,
@@ -61,11 +61,11 @@ const Orb: React.FC = () => {
       antialias: true,
       preserveDrawingBuffer: false
     });
-    renderer.setClearColor(0x000000, 0); // Set transparent background
+    renderer.setClearColor(0x000000, 0);  // Set transparent background
     renderer.setSize(window.innerWidth, window.innerHeight);
     rendererRef.current = renderer;
 
-    const icosahedronGeometry = new THREE.IcosahedronGeometry(10, 8);
+    const icosahedronGeometry = new THREE.IcosahedronGeometry(20, 8); // Increased size from 10 to 20
     const lambertMaterial = new THREE.MeshLambertMaterial({
       color: 0xffffff,
       wireframe: true,
@@ -146,7 +146,7 @@ const Orb: React.FC = () => {
         positionAttribute.getZ(i),
       );
 
-      const offset = 10; // Radius of the icosahedron
+      const offset = 20; // Increased from 10 to 20 to match new size
       const amp = 2.5; // Dramatic effect
       const time = window.performance.now();
       vertex.normalize();
