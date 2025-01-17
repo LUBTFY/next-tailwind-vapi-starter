@@ -2,10 +2,13 @@ import Orb from "@/components/orb";
 
 export default function Home() {
   return (
-    <main className="flex items-center justify-center" style={{ background: 'none', minHeight: '100vh' }}>
-      <div style={{ width: '100%', height: '100%', background: 'none' }}>
-        <Orb />
-      </div>
+    <main 
+      className="flex items-center justify-center min-h-screen"
+      style={{ 
+        background: 'linear-gradient(180deg, rgb(38, 38, 38) 0%, rgb(76, 29, 149) 100%)'
+      }}
+    >
+      <Orb />
     </main>
   );
 }
