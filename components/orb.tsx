@@ -40,6 +40,7 @@ const Orb: React.FC = () => {
   const initViz = () => {
     console.log("Initializing Three.js visualization...");
     const scene = new THREE.Scene();
+    scene.background = null; // Make scene background transparent
     const group = new THREE.Group();
     const camera = new THREE.PerspectiveCamera(
       45,
@@ -55,7 +56,12 @@ const Orb: React.FC = () => {
     groupRef.current = group;
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ 
+      alpha: true, 
+      antialias: true,
+      preserveDrawingBuffer: false
+    });
+    renderer.setClearColor(0x000000, 0); // Set transparent background
     renderer.setSize(window.innerWidth, window.innerHeight);
     rendererRef.current = renderer;
 
@@ -186,12 +192,12 @@ const Orb: React.FC = () => {
   };
 
   return (
-    <div style={{ height: "100%" }}>
+    <div style={{ height: "100%", background: 'transparent' }}>
       <div
         id="out"
         className="hover:cursor-pointer"
         onClick={toggleCall}
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: "100%", width: "100%", background: 'transparent' }}
       ></div>
     </div>
   );
