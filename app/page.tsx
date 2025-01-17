@@ -5,7 +5,7 @@ export default function Home() {
     <main 
       className="flex items-center justify-center min-h-screen"
       style={{ 
-        background: 'linear-gradient(180deg, rgb(38, 38, 38) 0%, rgb(76, 29, 149) 100%)'
+        background: 'linear-gradient(180deg, #141316 0%, #B685FF 100%)'
       }}
     >
       <Orb />
