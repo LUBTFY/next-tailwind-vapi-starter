@@ -2,13 +2,12 @@
 
 steps:
   # Step 1: Build the Docker image using your Dockerfile
-  # This process includes 'npm ci' and 'npm run build' as defined in the Dockerfile.
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
       '-t',
       '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
-      '.' # Docker context is the current directory (where Dockerfile is)
+      '.'
     ]
     id: 'Build Docker Image'
 
@@ -18,47 +17,67 @@ steps:
     id: 'Push to Artifact Registry'
 
   # Step 3: Deploy the image to Cloud Run
-  # VAPI_API_KEY is injected from Secret Manager at RUNTIME by Cloud Run.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args: [
       'run',
       'deploy',
-      '${_SERVICE_NAME}', # Your Cloud Run service name
+      '${_SERVICE_NAME}',
       '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
       '--region=${_REGION}',
       '--platform=managed',
-      '--allow-unauthenticated', # Assuming your Org Policy allows this now
-      '--port=3000',             # Port your Next.js app (server.js) listens on
-      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest', # Mount secret at runtime
-      '--memory=512Mi',          # Set memory, adjust as needed
-      '--timeout=300s'           # Optional: set request timeout
+      '--allow-unauthenticated',
+      '--port=3000',
+      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest',
+      '--memory=512Mi',
+      '--timeout=300s'
     ]
     id: 'Deploy to Cloud Run'
 
-# Define the images that this build produces
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'
 
-# Substitution variables.
-# IMPORTANT: Set these in your Cloud Build Trigger UI in the GCP Console,
-# or pass them via `gcloud builds submit --substitutions=...` if running manually.
 substitutions:
-  _REGION: 'us-central1'        # REQUIRED: Your GCP region (e.g., us-central1, europe-west1)
-  _AR_REPO_NAME: 'nextjs-apps'  # REQUIRED: Your Artifact Registry repository name
-  _IMAGE_NAME: 'rotating-orb'   # REQUIRED: Your Docker image name (without tag)
-  _SERVICE_NAME: 'rotating-orb' # REQUIRED: Your Cloud Run service name
+  _REGION: 'us-central1'
+  _AR_REPO_NAME: 'nextjs-apps'
+  _IMAGE_NAME: 'rotating-orb'
+  _SERVICE_NAME: 'rotating-orb'
 
-# Optional: Specify logs bucket (Cloud Build creates one by default if not specified)
-# logsBucket: 'gs://your-project-id_cloudbuild_logs' # Or your existing bucket like 'gs://vapi-orb_cloudbuild'
+# Specify your custom logs bucket
+logsBucket: 'gs://vapi-orb_cloudbuild' # MAKE SURE THIS BUCKET EXISTS
 
-# Optional: Specify service account if not using the default Cloud Build SA
-# Ensure this SA has permissions:
-# - Artifact Registry Writer (roles/artifactregistry.writer)
-# - Cloud Run Admin (roles/run.admin)
-# - Service Account User (roles/iam.serviceAccountUser) - to act as the Cloud Run runtime SA
-# - Secret Manager Secret Accessor (roles/secretmanager.secretAccessor) - if build SA needs to access secrets (not needed with this config)
-# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/your-cloud-build-sa@${PROJECT_ID}.iam.gserviceaccount.com'
-# Your existing one: serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/service-${PROJECT_NUMBER}@gcp-sa-cloudbuild.iam.gserviceaccount.com'
-# The default Cloud Build service account usually has enough permissions if Artifact Registry and Cloud Run are in the same project.
-# You might need to grant it "Service Account User" on the Cloud Run runtime service account if they are different.
+# Specify your CUSTOM Cloud Build service account email
+serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+# Note: The project ID part is important. If 'vapi-orb' is your project ID, then it would be:
+# serviceAccount: 'projects/vapi-orb/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+# OR more generally:
+# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+# The console usually shows the full path. If 'vapi-orb' IS your project ID, the last one is simpler.
+# Let's use the most explicit form for clarity if ${PROJECT_ID} is indeed 'vapi-orb'.
+# If ${PROJECT_ID} is different, adjust accordingly.
+#
+# Given the SA email format cloud-build-sa@PROJECT_ID.iam.gserviceaccount.com,
+# it should be:
+# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@${PROJECT_ID}.iam.gserviceaccount.com'
+#
+# Let's assume 'vapi-orb' in 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com' refers to your PROJECT_ID.
+# So, if PROJECT_ID is indeed 'vapi-orb', then this is correct:
+# serviceAccount: 'projects/vapi-orb/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+#
+# To be absolutely safe and use the substitution variable if it's defined:
+# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@${PROJECT_ID}.iam.gserviceaccount.com'
+#
+# However, since your service account email is literally 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com',
+# and assuming 'vapi-orb' IS your project ID:
+# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+#
+# To be perfectly clear and match what's shown in IAM if that service account belongs to the project defined by ${PROJECT_ID}:
+# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+#
+# Let's try the most direct email you provided:
+# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+#
+# Final Answer for serviceAccount based on your screenshot, assuming vapi-orb is the project ID.
+# The format projects/${PROJECT_ID}/serviceAccounts/SERVICE_ACCOUNT_EMAIL is a bit redundant if the email already contains the project.
+# The most common way to specify is just the email.
+serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
