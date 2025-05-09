@@ -1,38 +1,41 @@
-# cloudbuild.yaml
+# cloudbuild.yaml (with region hardcoded in deploy step)
 
 steps:
-  # ... (build step) ...
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
       '-t',
-      '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}', # Uses _AR_REPO_NAME
+      '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
       '.'
     ]
     id: 'Build Docker Image'
 
-  # ... (push step) ...
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'] # Uses _AR_REPO_NAME
+    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}']
     id: 'Push to Artifact Registry'
 
-  # ... (deploy step) ...
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args: [
       'run',
       'deploy',
-      '${_SERVICE_NAME}',
-      '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}', # Uses _AR_REPO_NAME
-      # ... other deploy args ...
+      '${_SERVICE_NAME}', # You can also hardcode 'rotating-orb' here for testing if needed
+      '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
+      '--region=us-central1',      # <<< MODIFIED: Hardcoded region
+      '--platform=managed',
+      '--allow-unauthenticated',
+      '--port=3000',
+      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest',
+      '--memory=512Mi',
+      '--timeout=300s'
     ]
     id: 'Deploy to Cloud Run'
 
 images:
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}' # Uses _AR_REPO_NAME
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'
 
 substitutions:
-  _REGION: 'us-central1'
+  _REGION: 'us-central1' # This _REGION will still be used for the image paths above
   _AR_REPO_NAME: 'nextjs-orb-repo'
   _IMAGE_NAME: 'rotating-orb'
   _SERVICE_NAME: 'rotating-orb'
