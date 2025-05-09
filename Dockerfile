@@ -9,14 +9,14 @@ RUN npm install -g pnpm
 
 # Copy package.json and pnpm-lock.yaml
 COPY package.json pnpm-lock.yaml ./
-# Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --prod=false # Install all deps including devDeps for build
+# Install dependencies using pnpm, including devDependencies for the build
+RUN pnpm install --frozen-lockfile --prod=false
 
 # Stage 2: Build the Next.js application
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Install pnpm again (or copy from deps stage if layer caching is a concern, but this is simpler)
+# Install pnpm again
 RUN npm install -g pnpm
 
 # Copy dependencies from the 'deps' stage
@@ -38,10 +38,6 @@ ENV NODE_ENV production
 # Disable Next.js telemetry for the running application (optional)
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Install pnpm globally in the runner stage IF NEEDED for 'pnpm start'
-# If using Next.js standalone output with "node server.js", pnpm is not needed in runner.
-# RUN npm install -g pnpm # Only if you were to use 'pnpm start'
-
 # Create a non-root user and group for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -56,6 +52,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 USER nextjs
 
 # Expose the port the Next.js standalone server listens on
+# The server.js will listen on process.env.PORT (set by Cloud Run) or default to 3000
 EXPOSE 3000
 
 # Command to run the Next.js standalone server

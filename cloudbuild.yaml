@@ -1,6 +1,7 @@
-# cloudbuild.yaml (with region hardcoded in deploy step)
+# cloudbuild.yaml
 
 steps:
+  # Step 1: Build the Docker image using your Dockerfile
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
@@ -10,22 +11,25 @@ steps:
     ]
     id: 'Build Docker Image'
 
+  # Step 2: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}']
     id: 'Push to Artifact Registry'
 
+  # Step 3: Deploy the image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args: [
       'run',
       'deploy',
-      '${_SERVICE_NAME}', # You can also hardcode 'rotating-orb' here for testing if needed
+      '${_SERVICE_NAME}',
       '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
-      '--region=us-central1',      # <<< MODIFIED: Hardcoded region
+      '--region=${_REGION}', # This will use the _REGION substitution from the trigger
       '--platform=managed',
       '--allow-unauthenticated',
       '--port=3000',
-      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest',
+      # This maps your Secret Manager secrets to server-side environment variables
+      '--set-secrets=SERVER_VAPI_PUBLIC_KEY=vapi-api-key:latest,SERVER_VAPI_ASSISTANT_ID=vapi-assistant-id:latest',
       '--memory=512Mi',
       '--timeout=300s'
     ]
@@ -34,11 +38,15 @@ steps:
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'
 
+# Substitution variables.
+# ENSURE these are also set with the correct values in your Cloud Build Trigger UI.
 substitutions:
-  _REGION: 'us-central1' # This _REGION will still be used for the image paths above
-  _AR_REPO_NAME: 'nextjs-orb-repo'
-  _IMAGE_NAME: 'rotating-orb'
-  _SERVICE_NAME: 'rotating-orb'
+  _REGION: 'us-central1'        # Default, can be overridden by Trigger UI
+  _AR_REPO_NAME: 'nextjs-orb-repo' # Default, can be overridden by Trigger UI (YOUR ACTUAL AR REPO NAME)
+  _IMAGE_NAME: 'rotating-orb'   # Default, can be overridden by Trigger UI
+  _SERVICE_NAME: 'rotating-orb' # Default, can be overridden by Trigger UI
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+# 'serviceAccount:' line is NOT needed here because your Trigger UI is setting it.

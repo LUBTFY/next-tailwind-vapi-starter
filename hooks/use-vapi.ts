@@ -1,8 +1,13 @@
+// hooks/use-vapi.ts
+"use client"; // Ensure this is a client component if not already
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
 
-const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || ""; // Replace with your actual public key
-const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || ""; // Replace with your actual assistant ID
+// These will be populated by Next.js from the environment variables
+// set up in next.config.js and ultimately from Cloud Run secrets
+const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "";
+const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "";
 
 const useVapi = () => {
   const [volumeLevel, setVolumeLevel] = useState(0);
@@ -11,18 +16,22 @@ const useVapi = () => {
   const [conversation, setConversation] = useState<
     { role: string; text: string; timestamp: string; isFinal: boolean }[]
   >([]);
-  const vapiRef = useRef<any>(null);
+  const vapiRef = useRef<any>(null); // Consider typing Vapi instance if possible
 
   const initializeVapi = useCallback(() => {
-    if (!vapiRef.current) {
+    // console.log("useVapi: Initializing with publicKey:", publicKey); // For debugging
+    // console.log("useVapi: Assistant ID to be used:", assistantId); // For debugging
+    if (!vapiRef.current && publicKey) { // Only initialize if publicKey is present
       const vapiInstance = new Vapi(publicKey);
       vapiRef.current = vapiInstance;
 
       vapiInstance.on("call-start", () => {
+        // console.log("useVapi: call-start event");
         setIsSessionActive(true);
       });
 
       vapiInstance.on("call-end", () => {
+        // console.log("useVapi: call-end event");
         setIsSessionActive(false);
         setConversation([]); // Reset conversation on call end
       });
@@ -36,8 +45,11 @@ const useVapi = () => {
           setConversation((prev) => {
             const timestamp = new Date().toLocaleTimeString();
             const updatedConversation = [...prev];
+            const existingMsgIndex = updatedConversation.findIndex(
+              (msg) => msg.role === message.role && msg.isFinal === message.transcriptType
+            );
+
             if (message.transcriptType === "final") {
-              // Find the partial message to replace it with the final one
               const partialIndex = updatedConversation.findIndex(
                 (msg) => msg.role === message.role && !msg.isFinal,
               );
@@ -48,7 +60,7 @@ const useVapi = () => {
                   timestamp: updatedConversation[partialIndex].timestamp,
                   isFinal: true,
                 };
-              } else {
+              } else if (existingMsgIndex === -1) { // Add if no existing final message for this role
                 updatedConversation.push({
                   role: message.role,
                   text: message.transcript,
@@ -56,17 +68,13 @@ const useVapi = () => {
                   isFinal: true,
                 });
               }
-            } else {
-              // Add partial message or update the existing one
-              const partialIndex = updatedConversation.findIndex(
-                (msg) => msg.role === message.role && !msg.isFinal,
-              );
-              if (partialIndex !== -1) {
-                updatedConversation[partialIndex] = {
-                  ...updatedConversation[partialIndex],
+            } else { // Partial transcript
+              if (existingMsgIndex !== -1) {
+                updatedConversation[existingMsgIndex] = {
+                  ...updatedConversation[existingMsgIndex],
                   text: message.transcript,
                 };
-              } else {
+              } else if (updatedConversation.findIndex(msg => msg.role === message.role && !msg.isFinal) === -1) {
                 updatedConversation.push({
                   role: message.role,
                   text: message.transcript,
@@ -84,39 +92,48 @@ const useVapi = () => {
           message.functionCall.name === "changeUrl"
         ) {
           const command = message.functionCall.parameters.url.toLowerCase();
-          console.log(command);
-          // const newUrl = routes[command];
+          console.log("Function call changeUrl:", command);
           if (command) {
             window.location.href = command;
           } else {
-            console.error("Unknown route:", command);
+            console.error("Unknown route for function call:", command);
           }
         }
       });
 
       vapiInstance.on("error", (e: Error) => {
-        console.error("Vapi error:", e);
+        console.error("Vapi error in useVapi hook:", e);
       });
     }
-  }, []);
+  }, [publicKey]); // Re-initialize if publicKey changes (shouldn't happen often)
 
   useEffect(() => {
     initializeVapi();
 
-    // Cleanup function to end call and dispose Vapi instance
     return () => {
       if (vapiRef.current) {
-        vapiRef.current.stop();
-        vapiRef.current = null;
+        // console.log("useVapi: Cleaning up Vapi instance");
+        vapiRef.current.stop(); // Ensure call is stopped
+        vapiRef.current = null; // Dispose of instance
       }
     };
   }, [initializeVapi]);
 
   const toggleCall = async () => {
+    if (!vapiRef.current) {
+      console.error("Vapi instance not initialized in toggleCall.");
+      return;
+    }
+    if (!assistantId) {
+      console.error("Assistant ID is not available in toggleCall.");
+      return;
+    }
     try {
       if (isSessionActive) {
+        // console.log("useVapi: Stopping call via toggleCall");
         await vapiRef.current.stop();
       } else {
+        // console.log("useVapi: Starting call with assistantId:", assistantId, "via toggleCall");
         await vapiRef.current.start(assistantId);
       }
     } catch (err) {
@@ -124,6 +141,7 @@ const useVapi = () => {
     }
   };
 
+  // ... (sendMessage, say, toggleMute remain the same as you provided)
   const sendMessage = (role: string, content: string) => {
     if (vapiRef.current) {
       vapiRef.current.send({
@@ -146,6 +164,7 @@ const useVapi = () => {
       setIsMuted(newMuteState);
     }
   };
+
 
   return {
     volumeLevel,
