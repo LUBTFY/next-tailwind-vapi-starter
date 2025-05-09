@@ -1,17 +1,23 @@
 # Dockerfile
 
-# Stage 1: Install dependencies
+# Stage 1: Install PNPM and dependencies
 FROM node:18-alpine AS deps
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock, etc.)
-COPY package.json package-lock.json* ./
-# Install dependencies using npm ci for reliable builds
-RUN npm ci
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package.json and pnpm-lock.yaml
+COPY package.json pnpm-lock.yaml ./
+# Install dependencies using pnpm
+RUN pnpm install --frozen-lockfile --prod=false # Install all deps including devDeps for build
 
 # Stage 2: Build the Next.js application
 FROM node:18-alpine AS builder
 WORKDIR /app
+
+# Install pnpm again (or copy from deps stage if layer caching is a concern, but this is simpler)
+RUN npm install -g pnpm
 
 # Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -21,8 +27,8 @@ COPY . .
 # Disable Next.js telemetry during the build (optional)
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Build the Next.js application for production
-RUN npm run build
+# Build the Next.js application using pnpm
+RUN pnpm run build
 
 # Stage 3: Production image - minimal and optimized
 FROM node:18-alpine AS runner
@@ -31,6 +37,10 @@ WORKDIR /app
 ENV NODE_ENV production
 # Disable Next.js telemetry for the running application (optional)
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# Install pnpm globally in the runner stage IF NEEDED for 'pnpm start'
+# If using Next.js standalone output with "node server.js", pnpm is not needed in runner.
+# RUN npm install -g pnpm # Only if you were to use 'pnpm start'
 
 # Create a non-root user and group for security
 RUN addgroup --system --gid 1001 nodejs
@@ -46,8 +56,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 USER nextjs
 
 # Expose the port the Next.js standalone server listens on
-# The server.js will listen on process.env.PORT (set by Cloud Run) or default to 3000
 EXPOSE 3000
 
 # Command to run the Next.js standalone server
+# server.js is part of the .next/standalone output
 CMD ["node", "server.js"]
