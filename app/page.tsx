@@ -1,7 +1,7 @@
 // app/page.tsx
 "use client";
 
-import { Orb } from "@/app/components"; // Assuming Orb is in app/components/orb.tsx and exported
+import Orb from "@/components/orb";
 
 export default function Home() {
   // The Vapi setup (publicKey, assistantId) is handled inside hooks/use-vapi.ts
