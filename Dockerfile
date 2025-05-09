@@ -16,6 +16,17 @@ RUN pnpm install --frozen-lockfile --prod=false
 FROM node:18-alpine AS builder
 WORKDIR /app
 
+# Define ARG for build-time environment variables that will be passed by Cloud Build
+# These names (ARG_SERVER_...) must match the --build-arg keys in cloudbuild.yaml
+ARG ARG_SERVER_VAPI_PUBLIC_KEY
+ARG ARG_SERVER_VAPI_ASSISTANT_ID
+
+# Set them as ENV variables so 'next build' (via next.config.js) can access them
+# during the build process in this stage. The names (SERVER_VAPI_...) must match
+# what next.config.js expects from process.env.
+ENV SERVER_VAPI_PUBLIC_KEY=${ARG_SERVER_VAPI_PUBLIC_KEY}
+ENV SERVER_VAPI_ASSISTANT_ID=${ARG_SERVER_VAPI_ASSISTANT_ID}
+
 # Install pnpm again
 RUN npm install -g pnpm
 
@@ -28,6 +39,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Build the Next.js application using pnpm
+# This 'pnpm run build' will now have access to the SERVER_VAPI_... environment variables
+# which next.config.js will use to create the NEXT_PUBLIC_... variables for the client bundle.
 RUN pnpm run build
 
 # Stage 3: Production image - minimal and optimized

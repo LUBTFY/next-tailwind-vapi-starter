@@ -1,15 +1,41 @@
 # cloudbuild.yaml
 
 steps:
-  # Step 1: Build the Docker image using your Dockerfile
+  # Step 0.A: Fetch Vapi Public Key from Secret Manager
+  # The Cloud Build service account (set in your trigger) needs 'Secret Manager Secret Accessor' role.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'FetchVapiPublicKey'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      # Fetches secret, removes newlines, base64 decodes, and saves to a temporary file in the workspace
+      - |
+        gcloud secrets versions access latest --secret=vapi-api-key --project=${PROJECT_ID} --format='get(payload.data)' | tr -d '\n' | base64 -d > /workspace/vapi_public_key.txt
+
+  # Step 0.B: Fetch Vapi Assistant ID from Secret Manager
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'FetchVapiAssistantId'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      # Fetches secret, removes newlines, base64 decodes, and saves to a temporary file in the workspace
+      - |
+        gcloud secrets versions access latest --secret=vapi-assistant-id --project=${PROJECT_ID} --format='get(payload.data)' | tr -d '\n' | base64 -d > /workspace/vapi_assistant_id.txt
+
+  # Step 1: Build the Docker image, passing fetched secrets as build arguments
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
+      # Pass the content of the files (which are the secrets) as build arguments
+      # The ARG names (ARG_SERVER_...) must match those in your Dockerfile
+      '--build-arg', 'ARG_SERVER_VAPI_PUBLIC_KEY=$(cat /workspace/vapi_public_key.txt)',
+      '--build-arg', 'ARG_SERVER_VAPI_ASSISTANT_ID=$(cat /workspace/vapi_assistant_id.txt)',
       '-t',
       '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
       '.'
     ]
     id: 'Build Docker Image'
+    # waitFor: ['FetchVapiPublicKey', 'FetchVapiAssistantId'] # Explicitly wait, though order usually suffices
 
   # Step 2: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -17,6 +43,8 @@ steps:
     id: 'Push to Artifact Registry'
 
   # Step 3: Deploy the image to Cloud Run
+  # The --set-secrets here makes the secrets available to the RUNTIME environment of Cloud Run.
+  # This is still good practice, even if values are baked into the client bundle for NEXT_PUBLIC_ vars.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args: [
@@ -24,11 +52,10 @@ steps:
       'deploy',
       '${_SERVICE_NAME}',
       '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
-      '--region=${_REGION}', # This will use the _REGION substitution from the trigger
+      '--region=${_REGION}',
       '--platform=managed',
       '--allow-unauthenticated',
       '--port=3000',
-      # This maps your Secret Manager secrets to server-side environment variables
       '--set-secrets=SERVER_VAPI_PUBLIC_KEY=vapi-api-key:latest,SERVER_VAPI_ASSISTANT_ID=vapi-assistant-id:latest',
       '--memory=512Mi',
       '--timeout=300s'
@@ -39,12 +66,12 @@ images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'
 
 # Substitution variables.
-# ENSURE these are also set with the correct values in your Cloud Build Trigger UI.
+# Ensure these are also set with the correct values in your Cloud Build Trigger UI.
 substitutions:
-  _REGION: 'us-central1'        # Default, can be overridden by Trigger UI
-  _AR_REPO_NAME: 'nextjs-orb-repo' # Default, can be overridden by Trigger UI (YOUR ACTUAL AR REPO NAME)
-  _IMAGE_NAME: 'rotating-orb'   # Default, can be overridden by Trigger UI
-  _SERVICE_NAME: 'rotating-orb' # Default, can be overridden by Trigger UI
+  _REGION: 'us-central1'
+  _AR_REPO_NAME: 'nextjs-orb-repo' # Your actual Artifact Registry repository name
+  _IMAGE_NAME: 'rotating-orb'
+  _SERVICE_NAME: 'rotating-orb'
 
 options:
   logging: CLOUD_LOGGING_ONLY
