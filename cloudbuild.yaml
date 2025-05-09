@@ -2,12 +2,13 @@
 
 steps:
   # Step 1: Build the Docker image using your Dockerfile
+  # This process includes 'npm ci' and 'npm run build' as defined in your Dockerfile.
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
       '-t',
       '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
-      '.'
+      '.' # Docker context is the current directory (where Dockerfile is)
     ]
     id: 'Build Docker Image'
 
@@ -17,31 +18,43 @@ steps:
     id: 'Push to Artifact Registry'
 
   # Step 3: Deploy the image to Cloud Run
+  # VAPI_API_KEY is injected from Secret Manager at RUNTIME by Cloud Run.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args: [
       'run',
       'deploy',
-      '${_SERVICE_NAME}',
+      '${_SERVICE_NAME}', # Your Cloud Run service name
       '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
       '--region=${_REGION}',
       '--platform=managed',
-      '--allow-unauthenticated',
-      '--port=3000',
-      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest',
-      '--memory=512Mi',
-      '--timeout=300s'
+      '--allow-unauthenticated', # Assuming your Org Policy allows this now for Cloud Run services
+      '--port=3000',             # Port your Next.js app (server.js) listens on
+      '--set-secrets=VAPI_API_KEY=vapi-api-key:latest', # Mount secret at runtime
+      '--memory=512Mi',          # Set memory, adjust as needed
+      '--timeout=300s'           # Optional: set request timeout
     ]
     id: 'Deploy to Cloud Run'
 
+# Define the images that this build produces
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}'
 
+# Substitution variables.
+# IMPORTANT: Set these in your Cloud Build Trigger UI in the GCP Console,
+# or pass them via `gcloud builds submit --substitutions=...` if running manually.
 substitutions:
-  _REGION: 'us-central1'
-  _AR_REPO_NAME: 'nextjs-apps'
-  _IMAGE_NAME: 'rotating-orb'
-  _SERVICE_NAME: 'rotating-orb'
+  _REGION: 'us-central1'        # REQUIRED: Your GCP region
+  _AR_REPO_NAME: 'nextjs-apps'  # REQUIRED: Your Artifact Registry repository name
+  _IMAGE_NAME: 'rotating-orb'   # REQUIRED: Your Docker image name (without tag)
+  _SERVICE_NAME: 'rotating-orb' # REQUIRED: Your Cloud Run service name
 
-# logsBucket: 'gs://vapi-orb_cloudbuild' # << REMOVED OR COMMENTED OUT
-# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com' # << REMOVED OR COMMENTED OUT
+# --- Logging Configuration ---
+# Since the Trigger UI is selecting the service account due to Org Policy,
+# we specify how logging should be handled here to satisfy the error condition.
+# CLOUD_LOGGING_ONLY is often the simplest.
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# The 'serviceAccount:' line is NOT needed here because the Trigger UI is setting it.
+# The 'logsBucket:' line is NOT needed here because we are using CLOUD_LOGGING_ONLY.
