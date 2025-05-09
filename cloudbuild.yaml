@@ -43,41 +43,5 @@ substitutions:
   _IMAGE_NAME: 'rotating-orb'
   _SERVICE_NAME: 'rotating-orb'
 
-# Specify your custom logs bucket
-logsBucket: 'gs://vapi-orb_cloudbuild' # MAKE SURE THIS BUCKET EXISTS
-
-# Specify your CUSTOM Cloud Build service account email
-serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-# Note: The project ID part is important. If 'vapi-orb' is your project ID, then it would be:
-# serviceAccount: 'projects/vapi-orb/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-# OR more generally:
-# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-# The console usually shows the full path. If 'vapi-orb' IS your project ID, the last one is simpler.
-# Let's use the most explicit form for clarity if ${PROJECT_ID} is indeed 'vapi-orb'.
-# If ${PROJECT_ID} is different, adjust accordingly.
-#
-# Given the SA email format cloud-build-sa@PROJECT_ID.iam.gserviceaccount.com,
-# it should be:
-# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@${PROJECT_ID}.iam.gserviceaccount.com'
-#
-# Let's assume 'vapi-orb' in 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com' refers to your PROJECT_ID.
-# So, if PROJECT_ID is indeed 'vapi-orb', then this is correct:
-# serviceAccount: 'projects/vapi-orb/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-#
-# To be absolutely safe and use the substitution variable if it's defined:
-# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@${PROJECT_ID}.iam.gserviceaccount.com'
-#
-# However, since your service account email is literally 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com',
-# and assuming 'vapi-orb' IS your project ID:
-# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-#
-# To be perfectly clear and match what's shown in IAM if that service account belongs to the project defined by ${PROJECT_ID}:
-# serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-#
-# Let's try the most direct email you provided:
-# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
-#
-# Final Answer for serviceAccount based on your screenshot, assuming vapi-orb is the project ID.
-# The format projects/${PROJECT_ID}/serviceAccounts/SERVICE_ACCOUNT_EMAIL is a bit redundant if the email already contains the project.
-# The most common way to specify is just the email.
-serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com'
+# logsBucket: 'gs://vapi-orb_cloudbuild' # << REMOVED OR COMMENTED OUT
+# serviceAccount: 'cloud-build-sa@vapi-orb.iam.gserviceaccount.com' # << REMOVED OR COMMENTED OUT
