@@ -33,7 +33,7 @@ images:
 
 substitutions:
   _REGION: 'us-central1'
-  _AR_REPO_NAME: 'vapi-orb'  # <<< CHANGE THIS from 'nextjs-apps' to 'vapi-orb'
+  _AR_REPO_NAME: 'nextjs-orb-repo'
   _IMAGE_NAME: 'rotating-orb'
   _SERVICE_NAME: 'rotating-orb'
 
