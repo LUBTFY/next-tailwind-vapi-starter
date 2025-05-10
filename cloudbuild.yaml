@@ -23,19 +23,18 @@ steps:
         gcloud secrets versions access latest --secret=vapi-assistant-id --project=${PROJECT_ID} --format='get(payload.data)' | tr -d '\n' | base64 -d > /workspace/vapi_assistant_id.txt
 
   # Step 1: Build the Docker image, passing fetched secrets as build arguments
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [
-      'build',
-      # Pass the content of the files (which are the secrets) as build arguments
-      # The ARG names (ARG_SERVER_...) must match those in your Dockerfile
-      '--build-arg', 'ARG_SERVER_VAPI_PUBLIC_KEY=$(cat /workspace/vapi_public_key.txt)',
-      '--build-arg', 'ARG_SERVER_VAPI_ASSISTANT_ID=$(cat /workspace/vapi_assistant_id.txt)',
-      '-t',
-      '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}',
-      '.'
-    ]
+  - name: 'gcr.io/cloud-builders/docker' # This is the image that provides the 'docker' command
+    entrypoint: 'bash' # Use bash to ensure command substitution for --build-arg values
+    args:
+      - '-c'
+      - | # The entire command below will be executed by bash -c
+        docker build \
+          --build-arg "ARG_SERVER_VAPI_PUBLIC_KEY=$(cat /workspace/vapi_public_key.txt)" \
+          --build-arg "ARG_SERVER_VAPI_ASSISTANT_ID=$(cat /workspace/vapi_assistant_id.txt)" \
+          -t "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_IMAGE_NAME}:${SHORT_SHA}" \
+          . # Docker context is the current directory
     id: 'Build Docker Image'
-    # waitFor: ['FetchVapiPublicKey', 'FetchVapiAssistantId'] # Explicitly wait, though order usually suffices
+    # waitFor: ['FetchVapiPublicKey', 'FetchVapiAssistantId'] # Usually implicit by order
 
   # Step 2: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -43,9 +42,7 @@ steps:
     id: 'Push to Artifact Registry'
 
   # Step 3: Deploy the image to Cloud Run
-  # The --set-secrets here makes the secrets available to the RUNTIME environment of Cloud Run.
-  # This is still good practice, even if values are baked into the client bundle for NEXT_PUBLIC_ vars.
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk' # Using the full SDK image for gcloud
     entrypoint: gcloud
     args: [
       'run',
