@@ -1,4 +1,5 @@
 // app/page.tsx
+
 "use client";
 
 import Orb from "@/components/orb";
