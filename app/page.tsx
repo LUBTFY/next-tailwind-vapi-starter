@@ -1,21 +1,24 @@
-// app/page.tsx (within next-tailwind-vapi-starter project)
+// next-tailwind-vapi-starter/app/page.tsx
 "use client";
 
-import Orb from "@/components/orb"; // Path assumes 'components' folder is at project root
-                                  // and tsconfig.json paths is "@/*": ["./*"]
+import Orb from "@/components/orb";
 
 export default function Home() {
   return (
-    <main
-      className="flex min-h-screen flex-col items-center justify-center p-0 m-0 bg-black"
-      style={{
-        width: '100vw',  // Use viewport width of the iframe
-        height: '100vh', // Use viewport height of the iframe
-        overflow: 'hidden' // Prevent scrollbars within the iframe page itself
+    // The main element no longer needs to be full screen.
+    // It will essentially shrink to its content.
+    // We can remove explicit width/height styles here if Orb defines its own.
+    <main 
+      className="flex items-center justify-center" // Center the direct child
+      style={{ 
+        width: '100%', // Take width of iframe
+        height: '100%', // Take height of iframe
+        background: 'transparent', // Important for embedding
+        overflow: 'hidden'
       }}
     >
-      {/* This div will expand to the size of the <main> element (iframe size).
-          The Orb component will then fill this div. */}
+      {/* The Orb component itself will define its rendered size.
+          This div will also take 100% of the iframe. */}
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
         <Orb />
       </div>
