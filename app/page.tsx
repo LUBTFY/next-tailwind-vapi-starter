@@ -1,22 +1,29 @@
-// app/page.tsx (within next-tailwind-vapi-starter project)
+// next-tailwind-vapi-starter/app/page.tsx
 "use client";
 
 import Orb from "@/components/orb"; 
 
 export default function Home() {
+  const pageBackgroundColor = "hsl(240 10% 3.9%)"; // Or "#0A0A0D"
+
   return (
     <main 
-      className="flex min-h-screen flex-col items-center justify-center p-0 m-0 bg-transparent" 
+      className="flex min-h-screen flex-col items-center justify-center p-0 m-0" // Removed bg-transparent class if it existed
       style={{ 
-        width: '100vw',  // Use viewport width of the iframe
-        height: '100vh', // Use viewport height of the iframe
-        overflow: 'hidden', // Prevent scrollbars within the iframe page itself
-        background: 'transparent' // Explicitly ensure main background is transparent
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        background: pageBackgroundColor // <<< SET TO YOUR WEBSITE'S BACKGROUND COLOR
       }}
     >
-      {/* This div will expand to the size of the <main> element (iframe size). 
-          The Orb component will then fill this div. */}
-      <div style={{ width: "100%", height: "100%", position: "relative", background: 'transparent' }}>
+      <div 
+        style={{ 
+          width: "100%", 
+          height: "100%", 
+          position: "relative", 
+          background: pageBackgroundColor // <<< ALSO SET HERE FOR CONSISTENCY
+        }}
+      >
         <Orb />
       </div>
     </main>
