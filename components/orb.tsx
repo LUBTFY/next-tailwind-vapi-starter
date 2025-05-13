@@ -15,6 +15,7 @@ const Orb: React.FC = () => {
   const originalPositionsRef = useRef<Float32Array | null>(null);
   const noiseRef = useRef(require('simplex-noise').createNoise3D());
   const animationFrameIdRef = useRef<number | null>(null);
+  const initCalledRef = useRef(false); // Prevent multiple initViz calls
 
   const updateBallMorph = useCallback((mesh: THREE.Mesh, volume: number) => {
     if (!mesh || !mesh.geometry) return;
@@ -32,7 +33,7 @@ const Orb: React.FC = () => {
     }
     positionAttribute.needsUpdate = true;
     geometry.computeVertexNormals();
-  }, []);
+  }, []); // Empty dependency array as noiseRef.current is stable
 
   const resetBallMorph = useCallback((mesh: THREE.Mesh, originalPositions: Float32Array | null) => {
     if (!originalPositions || !mesh || !mesh.geometry) return;
@@ -44,33 +45,36 @@ const Orb: React.FC = () => {
     }
     positionAttribute.needsUpdate = true;
     geometry.computeVertexNormals();
+  }, []); // Empty dependency array
+
+  const handleResize = useCallback(() => {
+    if (!cameraRef.current || !rendererRef.current || !mountRef.current) return;
+    const { clientWidth, clientHeight } = mountRef.current;
+    if (clientWidth > 0 && clientHeight > 0) {
+      cameraRef.current.aspect = clientWidth / clientHeight;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(clientWidth, clientHeight);
+    }
   }, []);
 
-  const initViz = useCallback(() => {
-    if (!mountRef.current || rendererRef.current) {
-        // console.log("[Orb] initViz: Called but no mount point or renderer already exists.");
-        return;
-    }
+  const initViz = useCallback((width: number, height: number) => {
+    if (!mountRef.current || rendererRef.current || initCalledRef.current) return;
+    
+    // console.log(`[Orb] initViz: Initializing with dimensions ${width}x${height}`);
+    initCalledRef.current = true;
+
     const currentMount = mountRef.current;
-    const { clientWidth, clientHeight } = currentMount;
-
-    if (clientWidth === 0 || clientHeight === 0) {
-      console.warn("[Orb] initViz: Mount point has zero dimensions on initViz call. This specific call to initViz will bail.");
-      return; 
-    }
-    console.log(`[Orb] initViz: Initializing with dimensions ${clientWidth}x${clientHeight}`);
-
     const scene = new THREE.Scene();
     scene.background = null;
     const group = new THREE.Group();
-    const camera = new THREE.PerspectiveCamera(45, clientWidth / clientHeight, 0.5, 100);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.5, 100);
     camera.position.set(0, 0, 100); camera.lookAt(scene.position); scene.add(camera);
     sceneRef.current = scene; groupRef.current = group; cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: false });
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
-    renderer.setSize(clientWidth, clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height);
     rendererRef.current = renderer;
     currentMount.innerHTML = ""; currentMount.appendChild(renderer.domElement);
 
@@ -94,57 +98,40 @@ const Orb: React.FC = () => {
       rendererRef.current.render(sceneRef.current, cameraRef.current);
     };
     renderLoop();
-  }, []); // initViz is stable
-
-  const handleResize = useCallback(() => {
-    if (!mountRef.current) return; // No mount point, do nothing
-
-    const { clientWidth, clientHeight } = mountRef.current;
-
-    if (clientWidth === 0 || clientHeight === 0) {
-        // console.log("[Orb] handleResize: Zero dimensions, skipping resize/init.");
-        return;
-    }
-
-    if (!rendererRef.current) { // If renderer isn't setup yet, AND we have dimensions, try to init
-        // console.log("[Orb] handleResize: Renderer not ready, attempting initViz.");
-        initViz(); // initViz will check dimensions again
-    } else if (cameraRef.current && rendererRef.current) { // If already initialized, just resize
-        // console.log(`[Orb] handleResize: Resizing existing canvas to: ${clientWidth}x${clientHeight}`);
-        cameraRef.current.aspect = clientWidth / clientHeight;
-        cameraRef.current.updateProjectionMatrix();
-        rendererRef.current.setSize(clientWidth, clientHeight);
-    }
-  }, [initViz]); // initViz is a stable dependency
+  }, []);
 
   useEffect(() => {
-    // This effect handles initial setup and attaching/detaching resize listener
-    // console.log("[Orb] Mount/update useEffect for init and resize listener.");
-    
-    // Attempt to initialize or resize on mount/update
-    // The timeout gives the browser a moment to calculate layout, especially in an iframe
-    const mountTimer = setTimeout(() => {
-        if (mountRef.current) {
-            handleResize(); // This will call initViz if needed and dimensions are ready
-        }
-    }, 50); // Small delay
+    let observer: ResizeObserver | undefined;
+    const currentMount = mountRef.current;
 
+    if (currentMount) {
+      const observerCallback = (entries: ResizeObserverEntry[]) => {
+        for (let entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0) {
+            if (!rendererRef.current && !initCalledRef.current) {
+              initViz(width, height);
+            }
+            handleResize(); 
+          }
+        }
+      };
+      observer = new ResizeObserver(observerCallback);
+      observer.observe(currentMount);
+    }
     window.addEventListener("resize", handleResize);
-    
     return () => {
-      clearTimeout(mountTimer);
       window.removeEventListener("resize", handleResize);
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-      }
+      if (currentMount && observer) observer.unobserve(currentMount);
+      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
       rendererRef.current?.dispose();
       rendererRef.current = null; sceneRef.current = null; cameraRef.current = null;
       groupRef.current = null; ballRef.current = null; originalPositionsRef.current = null;
-      // console.log("[Orb] Cleaned up viz on unmount.");
+      initCalledRef.current = false;
     };
-  }, [handleResize, initViz]); // initViz and handleResize are stable callbacks
+  }, [initViz, handleResize]);
 
-  useEffect(() => { // Morphing effect
+  useEffect(() => { 
     if (isSessionActive && ballRef.current && ballRef.current.geometry?.attributes.position) {
       updateBallMorph(ballRef.current, volumeLevel);
     } else if (!isSessionActive && ballRef.current && ballRef.current.geometry?.attributes.position && originalPositionsRef.current) {
@@ -156,7 +143,7 @@ const Orb: React.FC = () => {
 
   return (
     <div ref={mountRef} id="out" onClick={handleOrbClick} className="hover:cursor-pointer" style={{ width: "100%", height: "100%", background: 'transparent', overflow: 'hidden' }}>
-      {/* Canvas is dynamically added by Three.js */}
+      {/* Canvas is dynamically added */}
     </div>
   );
 };
